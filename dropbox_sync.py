@@ -20,6 +20,14 @@ class MusicBoxSyncer(object):
 
         return music_dir
 
+    def get_local_music_files(self):
+        file_list = []
+
+        music_dir = self.get_local_music_files()
+        for curr_dir, dirs, files in os.walk(music_dir):
+            file_list.extend([os.path.join(curr_dir, f) for f in files])
+        return file_list
+
     def sync(self):
         print "Starting sync..."
 
