@@ -85,3 +85,12 @@ class PlayerTests(unittest.TestCase):
         self.assertEquals(self.player.next_song(True), 2)
         self.assertEquals(self.player.next_song(True), 3)
         self.assertEquals(self.player.next_song(True), 1)
+
+    def testEmpty(self):
+        self.assertIsNone(self.player.next_song(True))
+        self.assertIsNone(self.player.next_song(False))
+
+        self.player.set_songs([], [])
+
+        self.assertIsNone(self.player.next_song(True))
+        self.assertIsNone(self.player.next_song(False))

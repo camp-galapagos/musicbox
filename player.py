@@ -21,6 +21,7 @@ class MusicPlayer(object):
             random.shuffle(self.curr_playlist)
 
         if not self.curr_playlist:
+            # there are no songs in this playlist. return None instead of erroring out
             return None
         return self.curr_playlist.pop(0)
 
