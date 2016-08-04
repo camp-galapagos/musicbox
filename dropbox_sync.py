@@ -23,16 +23,12 @@ class MusicBoxSyncer(object):
 
     @classmethod
     def get_local_music_files(cls):
-        file_list = []
-
         music_dir = MusicBoxSyncer._get_or_create_music_dir()
-        for _, dirs, _ in os.walk(music_dir):
-            for d in dirs:
-                files = []
-                for curr_dir, _, files in os.walk(os.path.join(music_dir, d)):
-                    files.extend([os.path.join(curr_dir, f) for f in files])
-                file_list.append(files)
-        return file_list
+        file_map = {}
+        for curr_path, _, files in os.walk(music_dir):
+            dir_name = os.path.split(curr_path)[-1]
+            file_map[dir_name] = [os.path.join(curr_path, f) for f in files if f.endswith(".mp3")]
+        return [file_map.get("a"), file_map.get("b")]
 
     # returns True if we downloaded new files, False otherwise
     def sync(self):
