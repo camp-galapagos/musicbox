@@ -8,11 +8,15 @@ import threading
 import time
 import signal
 import sys
+import urllib2
+import traceback
 import RPi.GPIO as GPIO
 import Adafruit_MCP3008
 
 event_lock = threading.Lock()
 event_condvar = threading.Condition()
+exit_flag = threading.Event()
+
 has_new_files = True
 was_button_pressed = False
 syncer_thread = None
@@ -40,16 +44,31 @@ def sync_thread():
                 with event_lock:
                     has_new_files = True
                     event_condvar.notifyAll()
-            time.sleep(15 * 60)
+
+            # if we didn't hit an exception, then we're connected to the internet. long timeout
+            if exit_flag.wait(timeout=15.0 * 60):
+                print "Syncer got exit flag -- exiting"
+                return
+        except urllib2.HTTPError:
+            print "Syncer: not connected to the internet"
+            if exit_flag.wait(60.0):
+                print "Syncer got exit flag -- exiting"
+                return
         except:
-            time.sleep(60)
+            traceback.print_exc("Syncer: unknown error")
+            if exit_flag.wait(60.0):
+                print "Syncer got exit flag -- exiting"
+                return
+
 
 def button_pressed():
     global was_button_pressed
 
     with event_lock:
+        print "Button was pressed!"
         was_button_pressed = True
         event_condvar.notifyAll()
+
 
 def main():
     global has_new_files
@@ -79,13 +98,13 @@ def main():
     volume_music = 0
     volume_effects = 0
 
-    while True:
+    while not exit_flag.wait(timeout=0.25):
         move_to_next_song = False
 
         with event_lock:
             is_a = GPIO.input(PIN_SWITCH_LEFT)
             if was_button_pressed:
-                print "Button was pressed with is_a = %s" % is_a
+                print "Button press activated with is_a = %s" % is_a
                 move_to_next_song = True
                 was_button_pressed = False
 
@@ -117,12 +136,9 @@ def main():
                 pygame.mixer.music.load(next_song)
                 pygame.mixer.music.play()
 
-        with event_condvar:
-            event_condvar.wait(timeout=0.25)
-
 def signal_handler(signal, frame):
     print "Got CTRL-C, exiting"
-    sys.exit(0)
+    exit_flag.set()
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
