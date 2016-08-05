@@ -144,7 +144,7 @@ def main():
                     print "Loaded files, but the array doesn't have two top-level entries: %s" % files
                 has_new_files = False
 
-        if move_to_next_song or not song_channel.get_sound():
+        if move_to_next_song or not pygame.mixer.music.get_busy():
             next_song = player.pop_next_song(is_a)
             if next_song:
                 print "Moving to next song (%s) with is_a = %s" % (next_song, is_a)

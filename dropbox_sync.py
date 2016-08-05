@@ -86,7 +86,8 @@ class MusicBoxSyncer(object):
             if file.endswith(".mp3"):
                 ogg_path = "%s%s" % (file[:-len(".mp3")], ".ogg")
                 if not os.path.exists(ogg_path):
-                    subprocess.call(["avconv", "-i", full_path, ogg_path])
+                    args = ["avconv", "-i", file, "-c", "libvorbis", ogg_path]
+                    subprocess.call(args)
 
         print "Syncing complete"
         return has_synced_something
