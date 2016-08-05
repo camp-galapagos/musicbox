@@ -82,52 +82,6 @@ def button_pressed(channel):
             was_button_pressed = True
             with event_condvar:
                 event_condvar.notifyAll()
-
-file_to_sound_cache = {}
-new_song_condvar = threading.Condition()
-player_lock = threading.Lock()
-
-def prefetch_data():
-    global player
-
-    print "Starting prefetcher thread"
-
-    prefetch_size = 1
-
-    while not exit_flag.isSet():
-        songs_to_have_in_cache = []
-        songs_to_load = []
-
-        with player_lock:
-            songs_to_have_in_cache = player.get_songs_to_cache(prefetch_size)
-            songs_to_load = [song for song in songs_to_have_in_cache if song not in file_to_sound_cache]
-
-        did_prefetch = False
-
-        if songs_to_load:
-            print "Prefetching %s" % songs_to_load
-            local_sound_cache = {}
-            for song in songs_to_load:
-                print "Pretching %s" % song
-                local_sound_cache[song] = pygame.mixer.Sound(song)
-                did_prefetch = True
-            print "Prefetch complete"
-
-            with player_lock:
-                file_to_sound_cache.update(local_sound_cache)
-                for song in file_to_sound_cache.iterkeys():
-                    if song not in songs_to_have_in_cache:
-                        del file_to_sound_cache[song]
-
-        print "Prefetcher sleeping"
-        if did_prefetch:
-            prefetch_size = min(prefetch_size + 1, SONG_CACHE_SIZE)
-        with new_song_condvar:
-            new_song_condvar.wait(timeout=3)
-        print "Prefetcher awake"
-
-    print "Prefetcher got exit signal"
-
 def main():
     global has_new_files
     global was_button_pressed
@@ -146,8 +100,6 @@ def main():
     # setup objects and pygame
     syncer_thread = threading.Thread(target=sync_thread)
     syncer_thread.start()
-    prefetcher_thread = threading.Thread(target=prefetch_data)
-    prefetcher_thread.start()
 
     pygame.init()
     pygame.mixer.init()
@@ -155,9 +107,6 @@ def main():
 
     song_channel = pygame.mixer.Channel(1)
     effects_channel = pygame.mixer.Channel(2)
-
-    song_sound = None
-    song_file = None
 
     is_a = False
     volume_music = 0
@@ -179,7 +128,7 @@ def main():
             if new_volume_music != volume_music:
                 volume_music = new_volume_music
                 print "Music volume changed to %s" % volume_music
-                song_channel.set_volume(volume_music / 1024.0)
+                pygame.mixer.music.set_volume(volume_music / 1024.0)
 
             if new_volume_effects != volume_effects:
                 volume_effects = new_volume_effects
@@ -189,30 +138,18 @@ def main():
             if has_new_files:
                 files = MusicBoxSyncer.get_local_music_files()
                 if files and len(files) == 2:
-                    with player_lock:
-                        player.set_songs(files[0], files[1])
+                    player.set_songs(files[0], files[1])
                     print "Loading new songs: %s" % files
                 else:
                     print "Loaded files, but the array doesn't have two top-level entries: %s" % files
                 has_new_files = False
 
         if move_to_next_song or not song_channel.get_sound():
-            with player_lock:
-                next_song = player.peek_next_song(is_a)
-                if next_song:
-                    if next_song != song_file:
-                        print "Moving to next song (%s) with is_a = %s" % (next_song, is_a)
-                    song_sound = file_to_sound_cache.get(next_song)
-                    if song_sound:
-                        player.pop_next_song(is_a)
-                        song_channel.play(song_sound)
-                        print "Playing %s" % next_song
-                        with new_song_condvar:
-                            new_song_condvar.notifyAll()
-                    else:
-                        if next_song != song_file:
-                            print "Tried to load %s but it wasn't in the cache!" % next_song
-                    song_file = next_song
+            next_song = player.pop_next_song(is_a)
+            if next_song:
+                print "Moving to next song (%s) with is_a = %s" % (next_song, is_a)
+                pygame.mixer.music.load(next_song)
+                pygame.mixer.music.play()
 
 def signal_handler(signal, frame):
     print "Got CTRL-C, exiting"
