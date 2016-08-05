@@ -4,6 +4,7 @@ import dropbox
 from secrets import DROPBOX_TOKEN
 import os
 import errno
+import subprocess
 
 DBX_MUSIC_PATH = u"/galapagos_music"
 
@@ -27,14 +28,15 @@ class MusicBoxSyncer(object):
         file_map = {}
         for curr_path, _, files in os.walk(music_dir):
             dir_name = os.path.split(curr_path)[-1]
-            file_map[dir_name] = [os.path.join(curr_path, f) for f in files if f.endswith(".mp3")]
-        return [file_map.get("a"), file_map.get("b")]
+            file_map[dir_name] = [os.path.join(curr_path, f) for f in files if f.endswith(".ogg")]
+        return [file_map.get("a", []), file_map.get("b", [])]
 
     # returns True if we downloaded new files, False otherwise
     def sync(self):
         print "Starting sync..."
 
         music_dir = self._get_or_create_music_dir()
+        new_file_list = []
 
         local_file_to_size = {}
         for curr_dir, dirs, files in os.walk(music_dir):
@@ -73,9 +75,18 @@ class MusicBoxSyncer(object):
                         else:
                             raise
 
-                with open(os.path.join(music_dir, relative_path), "wb") as f:
+                full_path = os.path.join(music_dir, relative_path)
+                with open(full_path, "wb") as f:
                     f.write(data)
+                    new_file_list.append(full_path)
                     has_synced_something = True
+
+        # turn new files into .ogg files
+        for file in new_file_list:
+            if file.endswith(".mp3"):
+                ogg_path = "%s%s" % (file[:-len(".mp3")], ".ogg")
+                if not os.path.exists(ogg_path):
+                    subprocess.call(["avconv", "-i", full_path, ogg_path])
 
         print "Syncing complete"
         return has_synced_something
