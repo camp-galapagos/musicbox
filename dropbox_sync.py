@@ -6,7 +6,7 @@ import os
 import errno
 import subprocess
 
-DBX_MUSIC_PATH = u"/galapagos_music"
+DBX_MUSIC_PATH = u"/galapagos_music/ogg"
 
 class MusicBoxSyncer(object):
     def __init__(self):

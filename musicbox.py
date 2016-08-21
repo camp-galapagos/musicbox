@@ -109,8 +109,8 @@ def main():
     effects_channel = pygame.mixer.Channel(2)
 
     is_a = False
-    volume_music = 0
-    volume_effects = 0
+    volume_music = 1024
+    volume_effects = 1024
 
     while not exit_flag.wait(timeout=0.25):
         move_to_next_song = False
