@@ -1,8 +1,5 @@
 #!/usr/bin/python
 
-from dropbox_sync import MusicBoxSyncer
-from player import MusicPlayer
-
 import pygame
 import threading
 import time
@@ -10,8 +7,13 @@ import signal
 import sys
 import urllib2
 import traceback
+import serial
 import RPi.GPIO as GPIO
 import Adafruit_MCP3008
+
+from dropbox_sync import MusicBoxSyncer
+from player import MusicPlayer
+from cloud_lights import CloudLights
 
 event_lock = threading.Lock()
 event_condvar = threading.Condition()
@@ -22,6 +24,9 @@ was_button_pressed = False
 syncer_thread = None
 
 player = MusicPlayer()
+
+NUM_CLOUD_LIGHTS = 15
+CLOUD_UPDATE_TIME = 0.7
 
 BUTTON_DEBOUNCE_TIME = 0.2
 SONG_CACHE_SIZE = 4
@@ -112,6 +117,11 @@ def main():
     volume_music = 1024
     volume_effects = 1024
 
+    # cloud effects
+    c = CloudLights(NUM_CLOUD_LIGHTS)
+    ser = serial.Serial("/dev/ttyACM0", 19200)
+    lastCloudUpdateTime = 0
+
     while not exit_flag.wait(timeout=0.25):
         move_to_next_song = False
 
@@ -150,6 +160,11 @@ def main():
                 print "Moving to next song (%s) with is_a = %s" % (next_song, is_a)
                 pygame.mixer.music.load(next_song)
                 pygame.mixer.music.play()
+
+        currTime = time.time()
+        if currTime - lastCloudUpdateTime >= CLOUD_UPDATE_TIME:
+            ser.write(c.getCloudLightSerialString())
+            lastCloudUpdateTime = currTime
 
 def signal_handler(signal, frame):
     print "Got CTRL-C, exiting"

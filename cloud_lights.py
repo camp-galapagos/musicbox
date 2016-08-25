@@ -11,16 +11,16 @@ LIGHTNING_STRIKE_MIN_SEC = 1
 LIGHTNING_STRIKE_MAX_SEC = 3
 
 STATE_TIMES = {
-    #"sunrise": 60 * 5,
-    #"day": 60 * 15,
-    #"sunset": 60 * 5,
-    #"night": 60 * 10,
-    #"storm": 60 * 10
-    "sunrise": 30,
-    "day": 30,
-    "sunset": 30,
-    "night": 30,
-    "storm": 30
+    "sunrise": 60 * 5,
+    "day": 60 * 15,
+    "sunset": 60 * 5,
+    "night": 60 * 10,
+    "storm": 60 * 10
+    #"sunrise": 30,
+    #"day": 30,
+    #"sunset": 30,
+    #"night": 30,
+    #"storm": 30
 }
 
 STATE_COLORS = {
@@ -47,7 +47,9 @@ STATE_COLORS = {
         [(19, 24, 98), (46, 68, 130), (84, 107, 171), (135, 136, 156), (190, 169, 222)],
     ],
     "storm": [
-        [(68, 91, 123), (170, 202, 240), (39, 56, 76)]
+        #[(68, 91, 123), (170, 202, 240), (39, 56, 76)]
+        # [(203, 229, 239), (22, 79, 173), (132, 173, 229), (103, 200, 251)]
+        [(0, 0, 255)]
     ]
 }
 STATE_COLORS["sunset"] = STATE_COLORS["sunrise"]
@@ -87,7 +89,7 @@ class CloudLights(object):
         self.lightningState = ["Initial"]
 
         # transition to sunrise, then to day to get the linear effects that we want
-        self._stateTransition(force_choice="day")
+        self._stateTransition(force_choice="storm")
         self._stateTransition(force_choice="storm") # TODO: permastorm for testing
 
         self.lastTimeCalled = 0
@@ -149,36 +151,47 @@ class CloudLights(object):
                 self.lightningState[i] = [currTime, currTime + random.random() *
                     (LIGHTNING_STRIKE_MAX_SEC - LIGHTNING_STRIKE_MIN_SEC) + LIGHTNING_STRIKE_MIN_SEC
                 ]
-            elif cloudLightningState != 0:
+                cloudLightningState = self.lightningState[i]
+
+            if cloudLightningState != 0:
                 alpha = float(currTime - cloudLightningState[0]) / (cloudLightningState[1] - cloudLightningState[0])
 
-                # animate current color to 255 value
+                # set current color to 255 value
                 colorHSV = colorsys.rgb_to_hsv(*map(lambda x: float(x) / 255.0, colorArray[i]))
 
                 # this is a lightning cloud -- animate it
-                if alpha > 2.0:
+                if alpha > 1.0:
                     # stop lightning
                     self.lightningState[i] = 0
                     print "Lightning done @ %s" % i
-                elif alpha > 1.0:
-                    # go back to original color
-                    alpha -= 1.0
-                    targetColor = map(lambda x: int(x * 255), colorsys.hsv_to_rgb(
-                        colorHSV[0], colorHSV[1] * (1.0 - alpha), (1.0 - colorHSV[2]) * alpha + colorHSV[2]
-                    ))
-                    colorArray[i] = self.colorInterpolate(targetColor, colorArray[i], alpha)
                 else:
-                    # go up to lightning
-                    targetColor = map(lambda x: int(x * 255), colorsys.hsv_to_rgb(
-                        colorHSV[0], colorHSV[1] * (1.0 - alpha), (1.0 - colorHSV[2]) * alpha + colorHSV[2]
-                    ))
-                    colorArray[i] = self.colorInterpolate(colorArray[i], targetColor, alpha*alpha)
+                    # go back to original color from white
+                    colorArray[i] = self.colorInterpolate([255, 255, 255], colorArray[i], alpha * alpha * alpha * alpha)
 
     def colorInterpolate(self, c1, c2, alpha):
         assert alpha >= 0 and alpha <= 1.0
 
         (c1_hsv, c2_hsv) = map(lambda c: colorsys.rgb_to_hsv(*map(lambda z: float(z) / 255.0, c)), (c1, c2))
+
+        # hue interpolation is special
+        (h1, h2) = (c1_hsv[0], c2_hsv[0])
+        h_delta = h2 - h1
+        if h1 > h2:
+            # swap hue values if c1's hue > c2's hue
+            temp = h1
+            h1 = h2
+            h2 = temp
+            h_delta *= -1
+            alpha = 1.0 - alpha
+
+        if h_delta > 0.5:
+            h1 += 1
+            h = (h1 + alpha * (h2 - h1)) % 1.0  # apparently this works?
+        else:
+            h = h1 + (alpha * h2)
+
         interp_hsv = [(y - x) * alpha + x for (x, y) in zip(c1_hsv, c2_hsv)]
+        interp_hsv[0] = h
 
         retVal = tuple(map(lambda z: int(z * 255), colorsys.hsv_to_rgb(*interp_hsv)))
         if any((x > 255 for x in retVal)):
