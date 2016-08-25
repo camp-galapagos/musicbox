@@ -26,8 +26,9 @@ syncer_thread = None
 player = MusicPlayer()
 
 NUM_CLOUD_LIGHTS = 15
-CLOUD_UPDATE_TIME = 0.7
+CLOUD_UPDATE_TIME = 0.1
 
+INPUT_CHECK_TIME = 0.2
 BUTTON_DEBOUNCE_TIME = 0.2
 SONG_CACHE_SIZE = 4
 
@@ -102,6 +103,8 @@ def main():
 
     mcp = Adafruit_MCP3008.MCP3008(clk=PIN_CLK, cs=PIN_CS, miso=PIN_MISO, mosi=PIN_MOSI)
 
+    lastInputCheckTime = 0
+
     # setup objects and pygame
     syncer_thread = threading.Thread(target=sync_thread)
     syncer_thread.start()
@@ -122,48 +125,53 @@ def main():
     ser = serial.Serial("/dev/ttyACM0", 19200)
     lastCloudUpdateTime = 0
 
-    while not exit_flag.wait(timeout=0.25):
-        move_to_next_song = False
-
-        with event_lock:
-            is_a = GPIO.input(PIN_SWITCH_LEFT)
-            if was_button_pressed:
-                print "Button press activated with is_a = %s" % is_a
-                move_to_next_song = True
-                was_button_pressed = False
-
-            new_volume_music = mcp.read_adc(VOLUME_MUSIC_CHANNEL)
-            new_volume_effects = mcp.read_adc(VOLUME_EFFECTS_CHANNEL)
-
-            if new_volume_music != volume_music:
-                volume_music = new_volume_music
-                print "Music volume changed to %s" % volume_music
-                pygame.mixer.music.set_volume(volume_music / 1024.0)
-
-            if new_volume_effects != volume_effects:
-                volume_effects = new_volume_effects
-                effects_channel.set_volume(volume_effects / 1024.0)
-                print "Effects volume changed to %s" % volume_effects
-
-            if has_new_files:
-                files = MusicBoxSyncer.get_local_music_files()
-                if files and len(files) == 2:
-                    player.set_songs(files[0], files[1])
-                    print "Loading new songs: %s" % files
-                else:
-                    print "Loaded files, but the array doesn't have two top-level entries: %s" % files
-                has_new_files = False
-
-        if move_to_next_song or not pygame.mixer.music.get_busy():
-            next_song = player.pop_next_song(is_a)
-            if next_song:
-                print "Moving to next song (%s) with is_a = %s" % (next_song, is_a)
-                pygame.mixer.music.load(next_song)
-                pygame.mixer.music.play()
-
+    while not exit_flag.wait(timeout=0.01):
         currTime = time.time()
+
+        if currTime - lastInputCheckTime >= INPUT_CHECK_TIME:
+            lastInputCheckTime = currTime
+
+            move_to_next_song = False
+
+            with event_lock:
+                is_a = GPIO.input(PIN_SWITCH_LEFT)
+                if was_button_pressed:
+                    print "Button press activated with is_a = %s" % is_a
+                    move_to_next_song = True
+                    was_button_pressed = False
+
+                new_volume_music = mcp.read_adc(VOLUME_MUSIC_CHANNEL)
+                new_volume_effects = mcp.read_adc(VOLUME_EFFECTS_CHANNEL)
+
+                if new_volume_music != volume_music:
+                    volume_music = new_volume_music
+                    print "Music volume changed to %s" % volume_music
+                    pygame.mixer.music.set_volume(volume_music / 1024.0)
+
+                if new_volume_effects != volume_effects:
+                    volume_effects = new_volume_effects
+                    effects_channel.set_volume(volume_effects / 1024.0)
+                    print "Effects volume changed to %s" % volume_effects
+
+                if has_new_files:
+                    files = MusicBoxSyncer.get_local_music_files()
+                    if files and len(files) == 2:
+                        player.set_songs(files[0], files[1])
+                        print "Loading new songs: %s" % files
+                    else:
+                        print "Loaded files, but the array doesn't have two top-level entries: %s" % files
+                    has_new_files = False
+
+            if move_to_next_song or not pygame.mixer.music.get_busy():
+                next_song = player.pop_next_song(is_a)
+                if next_song:
+                    print "Moving to next song (%s) with is_a = %s" % (next_song, is_a)
+                    pygame.mixer.music.load(next_song)
+                    pygame.mixer.music.play()
+
         if currTime - lastCloudUpdateTime >= CLOUD_UPDATE_TIME:
-            ser.write(c.getCloudLightSerialString())
+            serString = c.getCloudLightSerialString()
+            ser.write(serString)
             lastCloudUpdateTime = currTime
 
 def signal_handler(signal, frame):
