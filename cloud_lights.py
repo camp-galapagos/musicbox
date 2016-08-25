@@ -6,9 +6,11 @@ import colorsys
 RANDOM_TIME_FACTOR = 0.3
 STORM_PROBABILITY = 0.5
 LIGHTNING_PROBABILITY_PER_SEC = 0.2
-RESTRIKE_PROBABILITES = [0.7, 0.4, 0.1]
-LIGHTNING_STRIKE_MIN_SEC = 1
-LIGHTNING_STRIKE_MAX_SEC = 3
+RESTRIKE_PROBABILITIES = [0.2, 0.4, 0.2, 0.1, 0.1]
+
+LIGHTNING_STRIKE_MIN_SEC = 0.5
+LIGHTNING_STRIKE_MAX_SEC = 1.0
+
 LIGHTNING_FLASH_ON_TIME = 1.5
 LIGHTNING_FLASH_OFF_TIME = 0.5
 
@@ -136,6 +138,14 @@ class CloudLights(object):
         if not self.color_array_last_state:
             self.color_array_last_state = self.color_array_next_state
 
+    def _generateNumLightningFlashes(self):
+        r = random.random()
+        for numFlashes in xrange(0, len(RESTRIKE_PROBABILITIES)):
+            r -= RESTRIKE_PROBABILITIES[numFlashes]
+            if r <= 0:
+                break
+        return numFlashes + 1
+
     def runStorm(self, colorArray):
         currTime = time.time()
         timeSinceLastCall = currTime - self.lastTimeCalled
@@ -152,49 +162,33 @@ class CloudLights(object):
                 print "Lightning @ %s" % i
 
                 self.lightningState[i] = {
-                    "flashesLeft": 3,
-                    "lastFlashTime": 0,
-                    "lastFlashWasLightning": False,
+                    "flashesLeft": self._generateNumLightningFlashes(),
+                    "start": 0,
+                    "end": currTime,
                 }
                 cloudLightningState = self.lightningState[i]
 
             if cloudLightningState != 0:
-                if cloudLightningState["flashesLeft"] > 0:
-                    # we have some flashes to do
-                    lastLightning = cloudLightningState["lastFlashWasLightning"]
-                    flashDelta = currTime - cloudLightningState["lastFlashTime"]
-                    if (lastLightning and flashDelta >= LIGHTNING_FLASH_ON_TIME) or (
-                                not lastLightning and flashDelta >= LIGHTNING_FLASH_OFF_TIME
-                    ):
-                        cloudLightningState["lastFlashTime"] = currTime
+                alpha = float(currTime - cloudLightningState["start"]) / (
+                    cloudLightningState["end"] - cloudLightningState["start"]
+                )
 
-
-                        if lastLightning:
-                            flashColor = colorArray[i]
-                        else:
-                            flashColor = [255, 255, 255]
-                            cloudLightningState["flashesLeft"] -= 1
-                            if cloudLightningState["flashesLeft"] == 0:
-                                cloudLightningState["start"] = currTime
-                                cloudLightningState["end"] = currTime + random.random() * (
-                                    (LIGHTNING_STRIKE_MAX_SEC - LIGHTNING_STRIKE_MIN_SEC) + LIGHTNING_STRIKE_MIN_SEC
-                                )
-                        colorArray[i] = flashColor
-                else:
-                    alpha = float(currTime - cloudLightningState["start"]) / (
-                        cloudLightningState["end"] - cloudLightningState["start"]
-                    )
-
-                    # this is a lightning cloud -- animate it
-                    if alpha > 1.0:
-                        # stop lightning
+                # this is a lightning cloud -- animate it
+                if alpha >= 1.0:
+                    cloudLightningState["flashesLeft"] -= 1
+                    if cloudLightningState["flashesLeft"] == 0:
                         self.lightningState[i] = 0
                         print "Lightning done @ %s" % i
                     else:
-                        # go back to original color from white
-                        colorArray[i] = self.colorInterpolate(
-                            [255, 255, 255], colorArray[i], alpha * alpha * alpha * alpha
+                        cloudLightningState["start"] = currTime
+                        cloudLightningState["end"] = currTime + random.random() * (
+                            (LIGHTNING_STRIKE_MAX_SEC - LIGHTNING_STRIKE_MIN_SEC) + LIGHTNING_STRIKE_MIN_SEC
                         )
+                else:
+                    # go back to original color from white
+                    colorArray[i] = self.colorInterpolate(
+                        [255, 255, 255], colorArray[i], alpha * alpha * alpha * alpha
+                    )
 
     def colorInterpolate(self, c1, c2, alpha):
         assert alpha >= 0 and alpha <= 1.0
