@@ -4,7 +4,7 @@ import math
 import colorsys
 
 RANDOM_TIME_FACTOR = 0.3
-STORM_PROBABILITY = 0.5
+STORM_PROBABILITY = 0.25
 LIGHTNING_PROBABILITY_PER_SEC = 0.3
 RESTRIKE_PROBABILITIES = [0.2, 0.4, 0.2, 0.1, 0.1]
 
@@ -20,11 +20,6 @@ STATE_TIMES = {
     "sunset": 60 * 5,
     "night": 60 * 10,
     "storm": 60 * 10
-    #"sunrise": 30,
-    #"day": 30,
-    #"sunset": 30,
-    #"night": 30,
-    #"storm": 30
 }
 
 STATE_COLORS = {
@@ -51,9 +46,7 @@ STATE_COLORS = {
         [(19, 24, 98), (46, 68, 130), (84, 107, 171), (135, 136, 156), (190, 169, 222)],
     ],
     "storm": [
-        #[(68, 91, 123), (170, 202, 240), (39, 56, 76)]
-        # [(203, 229, 239), (22, 79, 173), (132, 173, 229), (103, 200, 251)]
-        [(0, 0, 255)]
+        [(129, 161, 147), (38, 37, 66), (66, 63, 97), (133, 125, 135)]
     ]
 }
 STATE_COLORS["sunset"] = STATE_COLORS["sunrise"]
@@ -93,8 +86,8 @@ class CloudLights(object):
         self.lightningState = ["Initial"]
 
         # transition to sunrise, then to day to get the linear effects that we want
-        self._stateTransition(force_choice="storm")
-        self._stateTransition(force_choice="storm") # TODO: permastorm for testing
+        self._stateTransition(force_choice="sunrise")
+        self._stateTransition(force_choice="day")
 
         self.lastTimeCalled = 0
 
@@ -110,8 +103,7 @@ class CloudLights(object):
         elif self.state == "night":
             self.state = "sunrise"
         elif self.state == "storm":
-            #self.state = "night"
-            self.state = "storm" # TODO: permastorm for testing
+            self.state = "night"
 
         if force_choice:
             self.state = force_choice

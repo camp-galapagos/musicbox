@@ -88,6 +88,15 @@ def button_pressed(channel):
             was_button_pressed = True
             with event_condvar:
                 event_condvar.notifyAll()
+
+def _makeSerialOrNone(shouldLogError):
+    try:
+        return serial.Serial("/dev/ttyACM0", 19200)
+    except serial.serialutil.SerialException:
+        if shouldLogError:
+            traceback.print_exc()
+        return None
+
 def main():
     global has_new_files
     global was_button_pressed
@@ -122,7 +131,8 @@ def main():
 
     # cloud effects
     c = CloudLights(NUM_CLOUD_LIGHTS)
-    ser = serial.Serial("/dev/ttyACM0", 19200)
+    ser = _makeSerialOrNone(True)
+
     lastCloudUpdateTime = 0
 
     while not exit_flag.wait(timeout=0.01):
@@ -169,10 +179,18 @@ def main():
                     pygame.mixer.music.load(next_song)
                     pygame.mixer.music.play()
 
-        if currTime - lastCloudUpdateTime >= CLOUD_UPDATE_TIME:
-            serString = c.getCloudLightSerialString()
-            ser.write(serString)
-            lastCloudUpdateTime = currTime
+            if currTime - lastCloudUpdateTime >= CLOUD_UPDATE_TIME:
+                lastCloudUpdateTime = currTime
+
+                if ser:
+                    serString = c.getCloudLightSerialString()
+                    try:
+                        ser.write(serString)
+                    except serial.serialutil.SerialException:
+                        traceback.print_exc()
+                        ser = None
+                else:
+                    ser = _makeSerialOrNone(False)
 
 def signal_handler(signal, frame):
     print "Got CTRL-C, exiting"
