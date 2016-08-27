@@ -33,8 +33,8 @@ BUTTON_DEBOUNCE_TIME = 0.2
 SONG_CACHE_SIZE = 4
 
 PIN_BUTTON = 26
-PIN_SWITCH_LEFT = 13
-PIN_SWITCH_RIGHT = 19
+PIN_SWITCH_LEFT = 19
+PIN_SWITCH_RIGHT = 13
 PIN_CLK = 21 # SCLK
 PIN_CS  = 12 # CE0
 PIN_MISO = 20 # DOUT
@@ -144,7 +144,7 @@ def main():
             move_to_next_song = False
 
             with event_lock:
-                is_a = GPIO.input(PIN_SWITCH_LEFT)
+                is_a = not GPIO.input(PIN_SWITCH_RIGHT)
                 if was_button_pressed:
                     print "Button press activated with is_a = %s" % is_a
                     move_to_next_song = True

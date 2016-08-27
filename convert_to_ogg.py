@@ -19,7 +19,7 @@ def main():
                 ogg_path = os.path.join(ogg_dir, local_dir, "%s%s" % (f[:-len(".mp3")], ".ogg"))
                 if not os.path.exists(ogg_path):
                     subprocess.call([
-                        "ffmpeg", "-i", os.path.join(curr_dir, f), "-c", "libvorbis", os.path.join(curr_dir, ogg_path)
+                        "ffmpeg", "-i", os.path.join(curr_dir, f), "-vn", "-acodec", "libvorbis", os.path.join(curr_dir, ogg_path)
                     ])
 
 if __name__ == "__main__":
